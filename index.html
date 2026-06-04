@@ -168,7 +168,7 @@
 
   <div class="panel" id="recordsPanel">
     <h2 class="age-h2">Check records for gaps</h2>
-    <p class="hint" style="margin-top:0">Upload a photo or PDF of your dog's vaccine records. Everything runs in your browser — nothing is uploaded anywhere. OCR is approximate, so please review and correct the detected entries.</p>
+    <p class="hint" style="margin-top:0">Upload a photo or PDF of your dog's vaccine records. Everything runs in your browser — nothing is uploaded anywhere. It recognizes disease names, combo codes (DA2PP, DHPP, DHLPP…) and common brands (Nobivac, Duramune, Vanguard, Bronchi-Shield…), and pairs each with a nearby date. OCR is approximate, so please review and correct the detected entries.</p>
     <div class="rec-controls">
       <input type="file" id="recFiles" accept="image/*,application/pdf" multiple>
       <button class="btn" id="recScan">Scan records</button>
@@ -372,13 +372,15 @@ function renderAge(){
 
 /* ---------- Client-side record extraction & gap check ---------- */
 const VAX_LIST = ['Rabies','Distemper (DA2PP)','Leptospirosis','Bordetella','Lyme','Canine Influenza'];
+// Patterns cover disease names, combo abbreviations (DA2PP/DHPP/DHLPP…) and
+// common product/brand names, since real records rarely use clean labels.
 const VAX_PATTERNS = [
-  ['Rabies', /\brabies\b|\brab(?:vac)?\b/i],
-  ['Distemper (DA2PP)', /distemper|parvo|adenovirus|parainfluenza|\bda2?pp?l?\b|\bdh?l?pp?i?\b|\bdapp\b|\b[4-7]-?way\b/i],
-  ['Leptospirosis', /lepto(?:spirosis)?|\bdh?lpp?\b/i],
-  ['Bordetella', /bordetella|kennel\s*cough/i],
-  ['Lyme', /lyme|borrelia/i],
-  ['Canine Influenza', /influenza|\bciv\b|h3n[28]/i],
+  ['Rabies', /\brabies\b|\bimrab\b|\bdefensor\b|\brabvac\b|nobivac\s*rabies/i],
+  ['Distemper (DA2PP)', /distemper|parvo(?:virus)?|adenovirus|hepatitis|parainfluenza|\bda2?pp?(?:v|i|l|li)?\b|\bdh?l?pp?i?\b|\bdh?app?l?\b|\bdap\b|\b[4-7]\s*-?\s*(?:in[\s-]*)?(?:way|1)\b|duramune|vanguard|galaxy|continuum|recombitek\s*c|nobivac\s*(?:dh?ppi?|dapp?i?)/i],
+  ['Leptospirosis', /lepto(?:spirosis)?|spirovac|\bl4\b|lepto\s*4|\bdh?lpp?\b|\bdh?ppl\b|\bda2?ppl\b/i],
+  ['Bordetella', /bordetella|bronchi[\s-]*shield|bronchicine|intra[\s-]*trac|kennel\s*cough|b\.?\s*bronchiseptica/i],
+  ['Lyme', /\blyme\b|borrelia|recombitek\s*lyme|nobivac\s*lyme|duramune\s*lyme/i],
+  ['Canine Influenza', /\binfluenza\b|\bciv\b|h3n[28]|nobivac\s*(?:flu|civ)|vanguard\s*civ/i],
 ];
 const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 function yr(y){ y=+y; return y<100 ? (y>50?1900+y:2000+y) : y; }
@@ -395,10 +397,15 @@ function extractDate(line){
   return null;
 }
 function parseRecords(text){
+  const lines = text.split(/\r?\n/).map(l => ({ text:l, date:extractDate(l) }));
   const out = [], seen = new Set();
-  for(const line of text.split(/\r?\n/)){
+  for(let i=0; i<lines.length; i++){
+    const line = lines[i].text;
     if(!line.trim()) continue;
-    const date = extractDate(line);
+    // Date may sit on the same line, or just above/below the vaccine name.
+    let date = lines[i].date
+      || (i>0 ? lines[i-1].date : null)
+      || (i<lines.length-1 ? lines[i+1].date : null);
     for(const [name, re] of VAX_PATTERNS){
       if(re.test(line)){
         const key = name + '|' + (date ? date.toISOString().slice(0,10) : '');
