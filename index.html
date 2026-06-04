@@ -56,14 +56,35 @@
   .dot.care{background:#fbeede}
   ul{margin:0; padding-left:18px} li{margin:2px 0; font-size:.94rem}
 
-  .annual h2{font-size:1.05rem; margin:0 0 12px; color:var(--teal-dark)}
+  .annual h2,.age-h2{font-size:1.05rem; margin:0 0 12px; color:var(--teal-dark)}
+  .age-result{font-size:1.05rem; font-weight:600; color:var(--ink); align-self:center}
+  .age-result small{display:block; font-weight:500; font-size:.82rem; color:var(--muted); margin-top:2px}
   table{width:100%; border-collapse:collapse; font-size:.94rem}
   th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--line)}
   th{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
   tr:last-child td{border-bottom:none}
+  .week-scroll{max-height:440px; overflow:auto; border:1px solid var(--line); border-radius:12px}
+  .week-scroll thead th{position:sticky; top:0; background:var(--card); box-shadow:0 1px 0 var(--line)}
+  tr.due{background:#fbf3e8}
+  tr.due td:first-child{font-weight:700; color:var(--teal-dark)}
   footer{margin-top:28px; font-size:.8rem; color:var(--muted); line-height:1.5}
   .pref{background:#eef6ee; border:1px solid #cfe6cf; color:#3f7a45; padding:3px 8px; border-radius:6px; font-size:.72rem; font-weight:600; margin-left:6px; white-space:nowrap}
   .empty{color:var(--muted); font-style:italic}
+  .btn{background:var(--teal); color:#fff; border:none; border-radius:10px; padding:10px 16px; font-size:.95rem; font-weight:600; cursor:pointer}
+  .btn:disabled{opacity:.5; cursor:default}
+  .btn.secondary{background:#ece8f0; color:var(--ink)}
+  .rec-controls{display:flex; flex-wrap:wrap; gap:12px; align-items:center}
+  input[type=file]{font-size:.9rem; max-width:100%}
+  .progress{font-size:.88rem; color:var(--muted); margin-top:10px; min-height:1.2em}
+  .rec-h3{font-size:.9rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px}
+  .entry{display:flex; gap:12px; align-items:center; padding:7px 0; border-bottom:1px solid var(--line); font-size:.94rem}
+  .entry .v{font-weight:600}
+  .entry .d{color:var(--muted)}
+  .entry .x{margin-left:auto; cursor:pointer; color:#b04a4a; font-weight:700; border:none; background:none; font-size:1.1rem; line-height:1}
+  .status-ok{color:#3f7a45; font-weight:600}
+  .status-gap{color:#b85c00; font-weight:700}
+  .status-na{color:var(--muted)}
+  .disclaimer{background:#fff7ee; border:1px solid #f0dcc2; color:#8a5a1f; padding:10px 12px; border-radius:10px; font-size:.84rem; margin-top:14px}
   .toggle-wrap{display:flex; flex-direction:column}
   .switch{display:inline-flex; align-items:center; gap:9px; cursor:pointer; text-transform:none; letter-spacing:normal; font-weight:500; color:var(--ink); margin:0}
   .switch input{position:absolute; opacity:0; width:0; height:0}
@@ -75,25 +96,24 @@
   .switch-label{font-size:.92rem}
   @media print{body{background:#fff} .controls,.hint{display:none}}
 
-  /* Stack the annual table into cards on narrow screens */
+  /* Stack responsive tables (.rtable) into cards on narrow screens */
   @media (max-width:560px){
-    .annual table, .annual thead, .annual tbody, .annual tr, .annual td{display:block; width:100%}
-    .annual thead{position:absolute; left:-9999px}
-    .annual tr{
-      border:1px solid var(--line); border-radius:12px; padding:6px 12px; margin-bottom:12px;
-      background:#fcfbfd;
+    .week-scroll{max-height:none; border:none; overflow:visible}
+    table.rtable, table.rtable thead, table.rtable tbody, table.rtable tr, table.rtable td{display:block; width:100%}
+    table.rtable thead{position:absolute; left:-9999px}
+    table.rtable tr{
+      border:1px solid var(--line); border-radius:12px; padding:6px 12px; margin-bottom:12px; background:#fcfbfd;
     }
-    .annual tr:last-child td{border-bottom:1px solid var(--line)}
-    .annual td{
-      border:none; border-bottom:1px solid var(--line);
+    table.rtable tr.due{background:#fbf3e8}
+    table.rtable td{
+      border:none; border-bottom:1px solid var(--line); text-align:right;
       padding:8px 0; display:flex; gap:12px; justify-content:space-between; align-items:flex-start;
     }
-    .annual tr td:last-child{border-bottom:none}
-    .annual td::before{
+    table.rtable tr td:last-child{border-bottom:none}
+    table.rtable td::before{
       content:attr(data-label); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em;
-      color:var(--muted); font-weight:600; flex:none; min-width:96px; padding-top:1px;
+      color:var(--muted); font-weight:600; flex:none; min-width:96px; padding-top:1px; text-align:left;
     }
-    .annual td{text-align:right}
   }
 </style>
 </head>
@@ -143,7 +163,37 @@
   </div>
 
   <div id="puppy" class="cards"></div>
+
   <div id="annualPanel" class="panel annual" style="display:none"></div>
+
+  <div class="panel" id="recordsPanel">
+    <h2 class="age-h2">Check records for gaps</h2>
+    <p class="hint" style="margin-top:0">Upload a photo or PDF of your dog's vaccine records. Everything runs in your browser — nothing is uploaded anywhere. OCR is approximate, so please review and correct the detected entries.</p>
+    <div class="rec-controls">
+      <input type="file" id="recFiles" accept="image/*,application/pdf" multiple>
+      <button class="btn" id="recScan">Scan records</button>
+    </div>
+    <div class="progress" id="recProgress"></div>
+    <div id="recResults"></div>
+    <div class="disclaimer">⚠ This is a planning aid, not medical advice. OCR can miss or misread entries — always confirm your dog's true vaccination status with your veterinarian.</div>
+  </div>
+
+  <div class="panel" id="weeklyPanel" style="display:none">
+    <h2 class="age-h2">Weekly age reference (first year)</h2>
+    <p class="hint" style="margin-top:0">Look up a date from your dog's records to see how old they were that week — highlighted rows mark scheduled vaccine visits.</p>
+    <div class="week-scroll"><table id="weekTable" class="rtable"></table></div>
+  </div>
+
+  <div class="panel" id="agePanel" style="display:none">
+    <h2 class="age-h2">Age calculator</h2>
+    <div class="controls">
+      <div>
+        <label for="onDate">How old is the dog on…</label>
+        <input type="date" id="onDate">
+      </div>
+      <div class="age-result" id="ageResult"></div>
+    </div>
+  </div>
 
   <footer>
     <strong>*Distemper</strong> = the DA2PP / 5-way vaccine (Distemper, Adenovirus I &amp; II, Parvovirus, Parainfluenza). Distemper and Leptospirosis are given as a single combined vaccine whenever both fall on the same visit; the one distemper dose given without leptospirosis uses a standalone distemper vaccine.
@@ -156,7 +206,10 @@
   </footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
 // Distemper (the DA2PP / 5-way) is given at all 3 puppy visits. Leptospirosis is a
 // 2-dose series 3–4 weeks apart, starting at 8 wks (doses @8 + 10–12) or 10–12 wks
 // (doses @10–12 + 16). Distemper + Lepto come as ONE combined vaccine when they
@@ -194,6 +247,22 @@ const addDays = (d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x
 const addYears = (d,n)=>{ const x=new Date(d); x.setFullYear(x.getFullYear()+n); return x; };
 const addMonths = (d,n)=>{ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; };
 
+// Calendar-accurate age (years / months / days) plus total weeks between two dates.
+function ageBetween(birth, on){
+  if(on < birth) return null;
+  let y = on.getFullYear()-birth.getFullYear();
+  let m = on.getMonth()-birth.getMonth();
+  let d = on.getDate()-birth.getDate();
+  if(d < 0){ m--; const prev=new Date(on.getFullYear(),on.getMonth(),0).getDate(); d+=prev; }
+  if(m < 0){ y--; m+=12; }
+  const weeks = Math.floor((on-birth)/(7*86400000));
+  const parts = [];
+  if(y) parts.push(y+(y===1?' year':' years'));
+  if(m) parts.push(m+(m===1?' month':' months'));
+  if(d || !parts.length) parts.push(d+(d===1?' day':' days'));
+  return { text: parts.join(', '), weeks };
+}
+
 function group(tag,cls,arr){
   if(!arr || !arr.length) return '';
   return `<div class="grp"><span class="tag ${cls}">${tag}</span><ul>`+
@@ -207,6 +276,8 @@ function render(){
   if(!val){
     puppy.innerHTML = '<div class="panel" style="grid-column:1/-1"><span class="empty">Pick a date of birth above to see the schedule.</span></div>';
     annualPanel.style.display='none';
+    document.getElementById('weeklyPanel').style.display='none';
+    document.getElementById('agePanel').style.display='none';
     return;
   }
   const dob = new Date(val + 'T00:00:00');
@@ -254,16 +325,248 @@ function render(){
       <td data-label="Tests &amp; care">${ANNUAL.care.join(', ')}</td></tr>`;
   }
   annualPanel.innerHTML = `<h2>Annual Examinations</h2>
-    <table><thead><tr><th>Visit</th><th>Approx. date</th><th>Core</th><th>Lifestyle</th><th>Tests &amp; care</th></tr></thead>
+    <table class="rtable"><thead><tr><th>Visit</th><th>Approx. date</th><th>Core</th><th>Lifestyle</th><th>Tests &amp; care</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
   annualPanel.style.display='block';
+
+  // Weekly age reference for the first year, with scheduled visits flagged
+  const due = {};
+  buildSchedule().forEach(s=>{
+    if(s.type==='exact' || s.type==='range'){
+      const wk = s.type==='exact' ? s.weeks : s.startWeeks;
+      const label = s.type==='range' ? `${s.label}-wk visit: ` : '';
+      due[wk] = label + [...s.core, ...s.life].join(', ');
+    }
+  });
+  let wrows='';
+  for(let w=0; w<=52; w++){
+    const date = addDays(dob, w*7);
+    const age = ageBetween(dob, date).text;
+    const vax = due[w] || '';
+    wrows += `<tr class="${vax?'due':''}">
+      <td data-label="Week">${w}</td>
+      <td data-label="Date">${fmt(date)}</td>
+      <td data-label="Age">${age}</td>
+      <td data-label="Vaccines due">${vax || '—'}</td></tr>`;
+  }
+  document.getElementById('weekTable').innerHTML =
+    `<thead><tr><th>Week</th><th>Date</th><th>Age</th><th>Vaccines due</th></tr></thead><tbody>${wrows}</tbody>`;
+  document.getElementById('weeklyPanel').style.display='block';
+
+  document.getElementById('agePanel').style.display='block';
+  const onEl = document.getElementById('onDate');
+  if(!onEl.value) onEl.value = new Date().toISOString().slice(0,10);
+  renderAge();
 }
 
-document.getElementById('lepto').addEventListener('change', render);
-document.getElementById('tri').addEventListener('change', render);
-document.getElementById('dob').addEventListener('input', render);
+function renderAge(){
+  const dv = document.getElementById('dob').value;
+  const ov = document.getElementById('onDate').value;
+  const out = document.getElementById('ageResult');
+  if(!dv || !ov){ out.innerHTML=''; return; }
+  const dob = new Date(dv+'T00:00:00'), on = new Date(ov+'T00:00:00');
+  const a = ageBetween(dob, on);
+  if(!a){ out.innerHTML = '<span class="empty">That date is before the birthdate.</span>'; return; }
+  out.innerHTML = a.text + '<small>≈ ' + a.weeks + ' weeks old on this date</small>';
+}
+
+/* ---------- Client-side record extraction & gap check ---------- */
+const VAX_LIST = ['Rabies','Distemper (DA2PP)','Leptospirosis','Bordetella','Lyme','Canine Influenza'];
+const VAX_PATTERNS = [
+  ['Rabies', /\brabies\b|\brab(?:vac)?\b/i],
+  ['Distemper (DA2PP)', /distemper|parvo|adenovirus|parainfluenza|\bda2?pp?l?\b|\bdh?l?pp?i?\b|\bdapp\b|\b[4-7]-?way\b/i],
+  ['Leptospirosis', /lepto(?:spirosis)?|\bdh?lpp?\b/i],
+  ['Bordetella', /bordetella|kennel\s*cough/i],
+  ['Lyme', /lyme|borrelia/i],
+  ['Canine Influenza', /influenza|\bciv\b|h3n[28]/i],
+];
+const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function yr(y){ y=+y; return y<100 ? (y>50?1900+y:2000+y) : y; }
+function extractDate(line){
+  let m;
+  if((m = line.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/)))            // 2026-02-26
+    return new Date(yr(m[1]), +m[2]-1, +m[3]);
+  if((m = line.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/)))          // 02/26/2026 (US)
+    return new Date(yr(m[3]), +m[1]-1, +m[2]);
+  if((m = line.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{2,4})/)) && MONTHS[m[1].slice(0,3).toLowerCase()]!=null) // Feb 26, 2026
+    return new Date(yr(m[3]), MONTHS[m[1].slice(0,3).toLowerCase()], +m[2]);
+  if((m = line.match(/(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{2,4})/)) && MONTHS[m[2].slice(0,3).toLowerCase()]!=null) // 26 Feb 2026
+    return new Date(yr(m[3]), MONTHS[m[2].slice(0,3).toLowerCase()], +m[1]);
+  return null;
+}
+function parseRecords(text){
+  const out = [], seen = new Set();
+  for(const line of text.split(/\r?\n/)){
+    if(!line.trim()) continue;
+    const date = extractDate(line);
+    for(const [name, re] of VAX_PATTERNS){
+      if(re.test(line)){
+        const key = name + '|' + (date ? date.toISOString().slice(0,10) : '');
+        if(!seen.has(key)){ seen.add(key); out.push({vaccine:name, date}); }
+      }
+    }
+  }
+  return out;
+}
+
+/* Expected-dose model, derived from the same schedule + toggles the app uses. */
+const CORE_VAX = ['Rabies','Distemper (DA2PP)','Leptospirosis','Bordetella','Lyme'];
+function vaccinePlans(){
+  const early = document.getElementById('lepto').value === '8';   // Lepto start
+  const tri = document.getElementById('tri').checked;             // 3-yr booster toggle
+  const Y = 365;
+  return {
+    'Distemper (DA2PP)': { puppy:[8,12,16],             booster: tri?3*Y:Y },
+    'Rabies':            { puppy:[16],                  booster: tri?3*Y:Y },
+    'Leptospirosis':     { puppy: early?[8,12]:[12,16], booster: Y },
+    'Lyme':              { puppy:[12,16],               booster: Y },
+    'Bordetella':        { puppy:[8],                   booster: Y },
+  };
+}
+// All expected dose due-dates: puppy series + boosters from ~1 yr of age,
+// generated through the first booster that falls after today (for "next due").
+function dueDates(dob, today, plan){
+  const day = 86400000, out = [];
+  for(const w of plan.puppy) out.push(new Date(dob.getTime() + w*7*day));
+  if(plan.booster){
+    let t = dob.getTime() + 365*day;
+    while(true){
+      out.push(new Date(t));
+      if(t > today.getTime()) break;
+      t += plan.booster*day;
+    }
+  }
+  out.sort((a,b)=>a-b);
+  return out;
+}
+
+async function fileToImages(file){
+  if(file.type === 'application/pdf'){
+    if(!window.pdfjsLib) throw new Error('PDF support failed to load');
+    const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+    const imgs = [];
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({scale:2});
+      const c = document.createElement('canvas');
+      c.width = vp.width; c.height = vp.height;
+      await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+      imgs.push(c);
+    }
+    return imgs;
+  }
+  return [URL.createObjectURL(file)];
+}
+
+let recordEntries = [];
+async function scanRecords(){
+  const files = [...document.getElementById('recFiles').files];
+  const prog = document.getElementById('recProgress');
+  const btn = document.getElementById('recScan');
+  if(!files.length){ prog.textContent = 'Choose a photo or PDF first.'; return; }
+  if(!window.Tesseract){ prog.textContent = 'OCR engine failed to load — check your connection.'; return; }
+  btn.disabled = true;
+  let text = '';
+  try{
+    for(let i=0; i<files.length; i++){
+      const imgs = await fileToImages(files[i]);
+      for(let j=0; j<imgs.length; j++){
+        const tag = files[i].name + (imgs.length>1 ? ` p${j+1}/${imgs.length}` : '');
+        const { data } = await Tesseract.recognize(imgs[j], 'eng', {
+          logger: m => { if(m.status==='recognizing text') prog.textContent = `Reading ${tag} — ${Math.round(m.progress*100)}%`; }
+        });
+        text += '\n' + data.text;
+      }
+    }
+    recordEntries = parseRecords(text);
+    prog.textContent = recordEntries.length
+      ? `Found ${recordEntries.length} entr${recordEntries.length===1?'y':'ies'} — please verify and correct below.`
+      : 'No vaccines recognized. You can add entries manually below.';
+  }catch(e){
+    prog.textContent = 'Could not read that file: ' + e.message;
+  }finally{
+    btn.disabled = false;
+    renderRecords();
+  }
+}
+
+function renderRecords(){
+  const wrap = document.getElementById('recResults');
+  if(!wrap) return;
+  let html = '<h3 class="rec-h3">Detected / entered vaccines</h3>';
+  if(!recordEntries.length){
+    html += '<p class="empty">Nothing yet — scan a record or add entries manually.</p>';
+  } else {
+    recordEntries.forEach((e,i)=>{
+      html += `<div class="entry"><span class="v">${e.vaccine}</span><span class="d">${e.date?fmt(e.date):'no date found'}</span><button class="x" data-i="${i}" title="Remove">×</button></div>`;
+    });
+  }
+  html += `<div class="rec-controls" style="margin-top:12px">
+      <select id="addVax">${VAX_LIST.map(v=>`<option>${v}</option>`).join('')}</select>
+      <input type="date" id="addDate">
+      <button class="btn secondary" id="addBtn">Add manually</button>
+    </div>`;
+
+  const dv = document.getElementById('dob').value;
+  if(dv){
+    const dob = new Date(dv+'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const weeks = Math.max(0, Math.floor((today-dob)/(7*86400000)));
+    const plans = vaccinePlans();
+    let rows = '';
+    for(const v of CORE_VAX){
+      const dd = dueDates(dob, today, plans[v]);
+      const expectedByNow = dd.filter(d=>d.getTime() <= today.getTime()).length;
+      const recs = recordEntries.filter(e=>e.vaccine===v);
+      const onRecord = recs.length;
+      const lastRec = recs.filter(e=>e.date).map(e=>e.date).sort((a,b)=>b-a)[0];
+
+      let status, note='';
+      if(expectedByNow === 0){
+        status = '<span class="status-na">— not due yet</span>';
+        note = 'first dose ~' + fmt(dd[0]);
+      } else if(onRecord >= expectedByNow){
+        status = '<span class="status-ok">✓ up to date</span>';
+        const future = dd.find(d=>d.getTime() > today.getTime());
+        if(future) note = 'next due ~' + fmt(future);
+      } else {
+        const missing = expectedByNow - onRecord;
+        status = `<span class="status-gap">⚠ ${onRecord} of ${expectedByNow} on record</span>`;
+        note = `${missing} dose${missing>1?'s':''} appear missing — next was due ~${fmt(dd[onRecord])}`;
+      }
+      rows += `<tr>
+        <td data-label="Vaccine">${v}</td>
+        <td data-label="Doses due by now">${expectedByNow}</td>
+        <td data-label="On record">${onRecord}${lastRec?` <span class="d">(latest ${fmt(lastRec)})</span>`:''}</td>
+        <td data-label="Status">${status}${note?`<br><small class="d">${note}</small>`:''}</td></tr>`;
+    }
+    const extras = recordEntries.filter(e=>!CORE_VAX.includes(e.vaccine));
+    const extraNote = extras.length ? `<p class="hint">Also on record (not in this schedule): ${[...new Set(extras.map(e=>e.vaccine))].join(', ')}.</p>` : '';
+    html += `<h3 class="rec-h3">Gap check — dog is ~${weeks} weeks old today</h3>
+      <table class="rtable"><thead><tr><th>Vaccine</th><th>Doses due by now</th><th>On record</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="hint">Dose counts follow your current Leptospirosis-start and booster-interval settings. Counts above what your records show may simply mean older records are missing — verify with your vet.</p>${extraNote}`;
+  } else {
+    html += '<h3 class="rec-h3">Gap check</h3><p class="empty">Enter the dog\'s date of birth at the top to compare records against the schedule.</p>';
+  }
+
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.x').forEach(b=> b.onclick = ()=>{ recordEntries.splice(+b.dataset.i,1); renderRecords(); });
+  document.getElementById('addBtn').onclick = ()=>{
+    const v = document.getElementById('addVax').value;
+    const d = document.getElementById('addDate').value;
+    recordEntries.push({vaccine:v, date: d ? new Date(d+'T00:00:00') : null});
+    renderRecords();
+  };
+}
+
+document.getElementById('recScan').addEventListener('click', scanRecords);
+document.getElementById('lepto').addEventListener('change', ()=>{ render(); renderRecords(); });
+document.getElementById('tri').addEventListener('change', ()=>{ render(); renderRecords(); });
+document.getElementById('dob').addEventListener('input', ()=>{ render(); renderRecords(); });
 document.getElementById('years').addEventListener('change', render);
+document.getElementById('onDate').addEventListener('input', renderAge);
 render();
+renderRecords();
 </script>
 </body>
 </html>
