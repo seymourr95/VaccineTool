@@ -168,7 +168,7 @@
 
   <div class="panel" id="recordsPanel">
     <h2 class="age-h2">Check records for gaps</h2>
-    <p class="hint" style="margin-top:0">Upload a photo or PDF of your dog's vaccine records. Everything runs in your browser — nothing is uploaded anywhere. It recognizes disease names, combo codes (DA2PP, DHPP, DHLPP…) and common brands (Nobivac, Duramune, Vanguard, Bronchi-Shield…), and pairs each with a nearby date. OCR is approximate, so please review and correct the detected entries.</p>
+    <p class="hint" style="margin-top:0">Upload a photo or PDF of your dog's vaccine records. Everything runs in your browser — nothing is uploaded anywhere. It recognizes disease names, combo codes (DA2PP, DHPP, DHLPP, CDV/CAV/CPV, FVRCP…) and common brands (Nobivac, Duramune, Vanguard, Spectra, Bronchi-Shield…), and pairs each with a nearby date. OCR is approximate, so please review and correct the detected entries.</p>
     <div class="rec-controls">
       <input type="file" id="recFiles" accept="image/*,application/pdf" multiple>
       <button class="btn" id="recScan">Scan records</button>
@@ -371,16 +371,19 @@ function renderAge(){
 }
 
 /* ---------- Client-side record extraction & gap check ---------- */
-const VAX_LIST = ['Rabies','Distemper (DA2PP)','Leptospirosis','Bordetella','Lyme','Canine Influenza'];
-// Patterns cover disease names, combo abbreviations (DA2PP/DHPP/DHLPP…) and
+const VAX_LIST = ['Rabies','Distemper (DA2PP)','Leptospirosis','Bordetella','Lyme','Canine Influenza','FVRCP (feline)','FeLV (feline)'];
+// Patterns cover disease names, combo abbreviations (DA2PP/DHPP/DHLPP/FVRCP…) and
 // common product/brand names, since real records rarely use clean labels.
 const VAX_PATTERNS = [
-  ['Rabies', /\brabies\b|\bimrab\b|\bdefensor\b|\brabvac\b|nobivac\s*rabies/i],
-  ['Distemper (DA2PP)', /distemper|parvo(?:virus)?|adenovirus|hepatitis|parainfluenza|\bda2?pp?(?:v|i|l|li)?\b|\bdh?l?pp?i?\b|\bdh?app?l?\b|\bdap\b|\b[4-7]\s*-?\s*(?:in[\s-]*)?(?:way|1)\b|duramune|vanguard|galaxy|continuum|recombitek\s*c|nobivac\s*(?:dh?ppi?|dapp?i?)/i],
-  ['Leptospirosis', /lepto(?:spirosis)?|spirovac|\bl4\b|lepto\s*4|\bdh?lpp?\b|\bdh?ppl\b|\bda2?ppl\b/i],
-  ['Bordetella', /bordetella|bronchi[\s-]*shield|bronchicine|intra[\s-]*trac|kennel\s*cough|b\.?\s*bronchiseptica/i],
-  ['Lyme', /\blyme\b|borrelia|recombitek\s*lyme|nobivac\s*lyme|duramune\s*lyme/i],
-  ['Canine Influenza', /\binfluenza\b|\bciv\b|h3n[28]|nobivac\s*(?:flu|civ)|vanguard\s*civ/i],
+  ['Rabies', /\brabies\b|\brab\s*vac|\bimrab\b|\bdefensor\b|\brabvac\b|nobivac\s*rabies|continuum\s*rabies/i],
+  ['Distemper (DA2PP)', /distemper|parvo(?:virus)?|adenovirus|hepatitis|parainfluenza|\bda2?pp?(?:v|i|l|li|c)?\b|\bdh?l?pp?(?:i|c|v)?\b|\bdh?app?l?\b|\bda?p\b|\bcdv\b|\bcav-?[12]?\b|\bcpv\b|\bcpiv\b|\bich\b|\b[4-9]\s*-?\s*(?:in[\s-]*)?(?:way|1)\b|duramune|vanguard|galaxy|continuum|recombitek\s*c|canine\s*spectra|\bspectra\b|versican|progard|nobivac\s*(?:dh?ppi?|dapp?i?)/i],
+  ['Leptospirosis', /lepto(?:spirosis)?|spirovac|\bl2\b|\bl4\b|lepto\s*[24]|\bdh?lpp?\b|\bdh?ppl\b|\bda2?ppl\b|canicola|grippotyphosa|pomona|icterohaem/i],
+  ['Bordetella', /bordetella|bronchi[\s-]*shield|bronchicine|intra[\s-]*trac|kennel\s*cough|nobivac\s*kc|b\.?\s*bronchiseptica/i],
+  ['Lyme', /\blyme\b|lymevax|borrelia|recombitek\s*lyme|nobivac\s*lyme|duramune\s*lyme|vanguard\s*cr?\s*lyme/i],
+  ['Canine Influenza', /\binfluenza\b|\bciv\b|h3n[28]|canine\s*flu|nobivac\s*(?:flu|civ)|vanguard\s*civ/i],
+  // Feline combos — recognized even though this app uses the dog schedule.
+  ['FVRCP (feline)', /\bfvrcp\b|\bfvr-?cp\b|panleuk(?:openia)?|\brcp\b|\bhcp\b|calicivirus|rhinotracheitis|feline\s*distemper|purevax\s*(?:fvrcp|rcp)/i],
+  ['FeLV (feline)', /\bfelv\b|feline\s*leukemia|purevax\s*felv/i],
 ];
 const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 function yr(y){ y=+y; return y<100 ? (y>50?1900+y:2000+y) : y; }
@@ -403,6 +406,10 @@ function plausibleDate(d, dob, today){
   if(dob && d.getTime() <= dob.getTime()) return false; // the birthdate itself / before birth
   return true;
 }
+// Line looks like an actual administration: route/site or "given/administered".
+const ADMIN_RE = /\b(sq|sc|im|iv|io|subq|sub-?cut|intranasal|in\b)\b|right\s*(shoulder|hind|fore|rear|leg)|left\s*(shoulder|hind|fore|rear|leg)|\b[rl]sh\b|\b[rl]hl\b|\bgiven\b|administ|inject|vaccinated\s*with/i;
+// Line is a question / decline / non-event mention — never a real dose.
+const SKIP_RE = /\?|\bdeclin|prior\s*vaccin|history\s*of|records\s*today|tag\s*:|recommend|next\s*due|do\s*you\s*want|history\/lifestyle/i;
 function parseRecords(text){
   const dobVal = document.getElementById('dob').value;
   const dob = dobVal ? new Date(dobVal+'T00:00:00') : null;
@@ -412,9 +419,22 @@ function parseRecords(text){
     date: extractDate(l),
     isBirth: /\b(birth\s*day|d\.?o\.?b\.?|born|age)\b/i.test(l)  // never source dates from these lines
   }));
-  // Best date for line i: same line, then the line above/below — skipping birthday/DOB lines
-  // and any implausible date.
-  const pickDate = i => {
+  // Visit date = the most frequently repeated plausible date. Letterheads repeat the
+  // visit date on every page, while stray dates (e.g. a birthday) appear once — so the
+  // mode reliably identifies the day vaccines were given. Used for administered lines
+  // whose own line carries no date. Skipped when there's no clear winner (multi-visit).
+  const counts = {};
+  lines.filter(l=>!l.isBirth).forEach(l=>{
+    if(plausibleDate(l.date, dob, today)){
+      const k = l.date.toISOString().slice(0,10);
+      counts[k] = (counts[k]||0) + 1;
+    }
+  });
+  const ranked = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const visitDate = (ranked.length===1 || (ranked.length>1 && ranked[0][1]>ranked[1][1]))
+    ? new Date(ranked[0][0]+'T00:00:00') : null;
+  // Adjacent plausible date: same line, then line above/below (skipping birthday/DOB lines).
+  const adjDate = i => {
     for(const j of [i, i-1, i+1]){
       if(j<0 || j>=lines.length || lines[j].isBirth) continue;
       if(plausibleDate(lines[j].date, dob, today)) return lines[j].date;
@@ -425,11 +445,14 @@ function parseRecords(text){
   for(let i=0; i<lines.length; i++){
     const line = lines[i].text;
     if(!line.trim()) continue;
-    const date = pickDate(i);
+    const skip = SKIP_RE.test(line);
+    const admin = ADMIN_RE.test(line) && !skip;
+    const near = adjDate(i);
+    const date = near || (admin ? visitDate : null);  // admin lines may borrow the visit date
     for(const [name, re] of VAX_PATTERNS){
       if(!re.test(line)) continue;
       appeared.add(name);
-      if(!date) continue;                 // require a plausible administration date
+      if(skip || !date) continue;        // need a plausible date and a real (non-question) context
       const key = name + '|' + date.toISOString().slice(0,10);
       if(!seen.has(key)){ seen.add(key); out.push({vaccine:name, date}); captured.add(name); }
     }
@@ -468,22 +491,39 @@ function dueDates(dob, today, plan){
   return out;
 }
 
-async function fileToImages(file){
-  if(file.type === 'application/pdf'){
-    if(!window.pdfjsLib) throw new Error('PDF support failed to load');
-    const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
-    const imgs = [];
-    for(let p=1; p<=pdf.numPages; p++){
-      const page = await pdf.getPage(p);
-      const vp = page.getViewport({scale:2});
-      const c = document.createElement('canvas');
-      c.width = vp.width; c.height = vp.height;
-      await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
-      imgs.push(c);
+// Pull the embedded text layer from a PDF (digital PDFs have perfect text — no OCR needed).
+// Reconstructs lines from item y-positions so vaccines/dates keep their layout.
+async function pdfText(file){
+  const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  let all = '';
+  for(let p=1; p<=pdf.numPages; p++){
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    let lastY = null, line = '', lines = [];
+    for(const it of tc.items){
+      const y = it.transform[5];
+      if(lastY !== null && Math.abs(y-lastY) > 3){ lines.push(line.trim()); line = ''; }
+      line += it.str + ' ';
+      lastY = y;
     }
-    return imgs;
+    if(line.trim()) lines.push(line.trim());
+    all += '\n' + lines.join('\n');
   }
-  return [URL.createObjectURL(file)];
+  return all;
+}
+
+// Render each PDF page to a canvas for OCR (scanned/image PDFs without a text layer).
+async function pdfToImages(file){
+  const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  const imgs = [];
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const vp = page.getViewport({scale:2});
+    const c = document.createElement('canvas');
+    c.width = vp.width; c.height = vp.height;
+    await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+    imgs.push(c);
+  }
+  return imgs;
 }
 
 let recordEntries = [];
@@ -492,19 +532,27 @@ async function scanRecords(){
   const prog = document.getElementById('recProgress');
   const btn = document.getElementById('recScan');
   if(!files.length){ prog.textContent = 'Choose a photo or PDF first.'; return; }
-  if(!window.Tesseract){ prog.textContent = 'OCR engine failed to load — check your connection.'; return; }
   btn.disabled = true;
   let text = '';
+  const ocr = async (img, tag) => {
+    if(!window.Tesseract) throw new Error('OCR engine failed to load — check your connection.');
+    const { data } = await Tesseract.recognize(img, 'eng', {
+      logger: m => { if(m.status==='recognizing text') prog.textContent = `Reading ${tag} — ${Math.round(m.progress*100)}%`; }
+    });
+    return data.text;
+  };
   try{
-    for(let i=0; i<files.length; i++){
-      const imgs = await fileToImages(files[i]);
-      for(let j=0; j<imgs.length; j++){
-        const tag = files[i].name + (imgs.length>1 ? ` p${j+1}/${imgs.length}` : '');
-        const { data } = await Tesseract.recognize(imgs[j], 'eng', {
-          logger: m => { if(m.status==='recognizing text') prog.textContent = `Reading ${tag} — ${Math.round(m.progress*100)}%`; }
-        });
-        text += '\n' + data.text;
+    for(const f of files){
+      // Digital PDFs: use the embedded text layer (accurate, no OCR). Fall back to OCR if it's a scan.
+      if(f.type === 'application/pdf' && window.pdfjsLib){
+        prog.textContent = `Reading ${f.name}…`;
+        const t = await pdfText(f);
+        if(t.replace(/\s/g,'').length > 60){ text += '\n' + t; continue; }
+        const imgs = await pdfToImages(f);
+        for(let j=0; j<imgs.length; j++) text += '\n' + await ocr(imgs[j], `${f.name} p${j+1}/${imgs.length}`);
+        continue;
       }
+      text += '\n' + await ocr(URL.createObjectURL(f), f.name);
     }
     const result = parseRecords(text);
     recordEntries = result.entries;
