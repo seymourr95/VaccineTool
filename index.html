@@ -396,24 +396,45 @@ function extractDate(line){
     return new Date(yr(m[3]), MONTHS[m[2].slice(0,3).toLowerCase()], +m[1]);
   return null;
 }
+// A date only counts as an administration date if it's after birth and not in the future.
+function plausibleDate(d, dob, today){
+  if(!d) return false;
+  if(d.getTime() > today.getTime()) return false;      // future "next due" projections
+  if(dob && d.getTime() <= dob.getTime()) return false; // the birthdate itself / before birth
+  return true;
+}
 function parseRecords(text){
-  const lines = text.split(/\r?\n/).map(l => ({ text:l, date:extractDate(l) }));
-  const out = [], seen = new Set();
+  const dobVal = document.getElementById('dob').value;
+  const dob = dobVal ? new Date(dobVal+'T00:00:00') : null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lines = text.split(/\r?\n/).map(l => ({
+    text: l,
+    date: extractDate(l),
+    isBirth: /\b(birth\s*day|d\.?o\.?b\.?|born|age)\b/i.test(l)  // never source dates from these lines
+  }));
+  // Best date for line i: same line, then the line above/below — skipping birthday/DOB lines
+  // and any implausible date.
+  const pickDate = i => {
+    for(const j of [i, i-1, i+1]){
+      if(j<0 || j>=lines.length || lines[j].isBirth) continue;
+      if(plausibleDate(lines[j].date, dob, today)) return lines[j].date;
+    }
+    return null;
+  };
+  const out = [], seen = new Set(), appeared = new Set(), captured = new Set();
   for(let i=0; i<lines.length; i++){
     const line = lines[i].text;
     if(!line.trim()) continue;
-    // Date may sit on the same line, or just above/below the vaccine name.
-    let date = lines[i].date
-      || (i>0 ? lines[i-1].date : null)
-      || (i<lines.length-1 ? lines[i+1].date : null);
+    const date = pickDate(i);
     for(const [name, re] of VAX_PATTERNS){
-      if(re.test(line)){
-        const key = name + '|' + (date ? date.toISOString().slice(0,10) : '');
-        if(!seen.has(key)){ seen.add(key); out.push({vaccine:name, date}); }
-      }
+      if(!re.test(line)) continue;
+      appeared.add(name);
+      if(!date) continue;                 // require a plausible administration date
+      const key = name + '|' + date.toISOString().slice(0,10);
+      if(!seen.has(key)){ seen.add(key); out.push({vaccine:name, date}); captured.add(name); }
     }
   }
-  return out;
+  return { entries: out, unmatched: [...appeared].filter(v => !captured.has(v)) };
 }
 
 /* Expected-dose model, derived from the same schedule + toggles the app uses. */
@@ -485,10 +506,14 @@ async function scanRecords(){
         text += '\n' + data.text;
       }
     }
-    recordEntries = parseRecords(text);
-    prog.textContent = recordEntries.length
-      ? `Found ${recordEntries.length} entr${recordEntries.length===1?'y':'ies'} — please verify and correct below.`
-      : 'No vaccines recognized. You can add entries manually below.';
+    const result = parseRecords(text);
+    recordEntries = result.entries;
+    let msg = recordEntries.length
+      ? `Found ${recordEntries.length} dated entr${recordEntries.length===1?'y':'ies'} — please verify and correct below.`
+      : 'No dated vaccine entries recognized. You can add entries manually below.';
+    if(result.unmatched.length)
+      msg += ` Also saw ${result.unmatched.join(', ')} mentioned without a clear date — add manually if needed.`;
+    prog.textContent = msg;
   }catch(e){
     prog.textContent = 'Could not read that file: ' + e.message;
   }finally{
