@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puppy Vaccine Schedule</title>
+<style>
+  :root{
+    --teal:#1f8a8a; --teal-dark:#14706f; --mauve:#9c6f8f;
+    --bg:#f4f1f5; --card:#ffffff; --ink:#23202a; --muted:#6b6675;
+    --core:#e9d7e4; --core-ink:#7a4f6e; --life:#d9ecec; --life-ink:#1f6b6b;
+    --line:#e4dfe8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(160deg,#f7f4f8,#eef4f4); color:var(--ink); min-height:100vh;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding:32px 20px 64px}
+  header h1{font-size:1.9rem; margin:0 0 4px; letter-spacing:-.02em}
+  header p{margin:0; color:var(--muted)}
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:20px 22px; margin:24px 0; box-shadow:0 1px 3px rgba(40,30,50,.05);
+  }
+  .controls{display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end}
+  label{display:block; font-size:.8rem; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em}
+  input[type=date], select{
+    font-size:1rem; padding:10px 12px; border:1px solid #cfc8d6; border-radius:10px;
+    background:#fff; color:var(--ink); min-width:200px;
+  }
+  input:focus,select:focus{outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(31,138,138,.15)}
+  .hint{font-size:.82rem; color:var(--muted); margin-top:10px}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:.82rem}
+  .chip{display:inline-flex; align-items:center; gap:7px; color:var(--muted)}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .dot.core{background:var(--core)} .dot.life{background:var(--life)}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    box-shadow:0 1px 3px rgba(40,30,50,.05); display:flex; flex-direction:column;
+  }
+  .card .top{padding:16px 18px 12px; border-bottom:1px solid var(--line)}
+  .age{font-size:1.5rem; font-weight:700; color:var(--teal-dark); letter-spacing:-.01em}
+  .age small{display:block; font-size:.72rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:2px}
+  .when{margin-top:8px; font-size:.98rem; font-weight:600}
+  .when .range{color:var(--ink)}
+  .body{padding:14px 18px 18px; flex:1}
+  .grp{margin-bottom:12px}
+  .grp:last-child{margin-bottom:0}
+  .tag{display:inline-block; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:3px 9px; border-radius:20px; margin-bottom:8px}
+  .tag.core{background:var(--core); color:var(--core-ink)}
+  .tag.life{background:var(--life); color:var(--life-ink)}
+  .tag.care{background:#fbeede; color:#9a6a2f}
+  .dot.care{background:#fbeede}
+  ul{margin:0; padding-left:18px} li{margin:2px 0; font-size:.94rem}
+
+  .annual h2{font-size:1.05rem; margin:0 0 12px; color:var(--teal-dark)}
+  table{width:100%; border-collapse:collapse; font-size:.94rem}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--line)}
+  th{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  footer{margin-top:28px; font-size:.8rem; color:var(--muted); line-height:1.5}
+  .pref{background:#eef6ee; border:1px solid #cfe6cf; color:#3f7a45; padding:3px 8px; border-radius:6px; font-size:.72rem; font-weight:600; margin-left:6px; white-space:nowrap}
+  .empty{color:var(--muted); font-style:italic}
+  .toggle-wrap{display:flex; flex-direction:column}
+  .switch{display:inline-flex; align-items:center; gap:9px; cursor:pointer; text-transform:none; letter-spacing:normal; font-weight:500; color:var(--ink); margin:0}
+  .switch input{position:absolute; opacity:0; width:0; height:0}
+  .track{width:42px; height:24px; background:#cfc8d6; border-radius:999px; position:relative; transition:background .18s; flex:none}
+  .knob{position:absolute; top:2px; left:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:transform .18s; box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .switch input:checked + .track{background:var(--teal)}
+  .switch input:checked + .track .knob{transform:translateX(18px)}
+  .switch input:focus-visible + .track{box-shadow:0 0 0 3px rgba(31,138,138,.25)}
+  .switch-label{font-size:.92rem}
+  @media print{body{background:#fff} .controls,.hint{display:none}}
+
+  /* Stack the annual table into cards on narrow screens */
+  @media (max-width:560px){
+    .annual table, .annual thead, .annual tbody, .annual tr, .annual td{display:block; width:100%}
+    .annual thead{position:absolute; left:-9999px}
+    .annual tr{
+      border:1px solid var(--line); border-radius:12px; padding:6px 12px; margin-bottom:12px;
+      background:#fcfbfd;
+    }
+    .annual tr:last-child td{border-bottom:1px solid var(--line)}
+    .annual td{
+      border:none; border-bottom:1px solid var(--line);
+      padding:8px 0; display:flex; gap:12px; justify-content:space-between; align-items:flex-start;
+    }
+    .annual tr td:last-child{border-bottom:none}
+    .annual td::before{
+      content:attr(data-label); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em;
+      color:var(--muted); font-weight:600; flex:none; min-width:96px; padding-top:1px;
+    }
+    .annual td{text-align:right}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐾 Puppy Vaccine Schedule</h1>
+    <p>Enter your dog's date of birth to generate a personalized vaccination timeline.</p>
+  </header>
+
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label for="dob">Date of birth</label>
+        <input type="date" id="dob">
+      </div>
+      <div>
+        <label for="lepto">Leptospirosis series starts at</label>
+        <select id="lepto">
+          <option value="10-12" selected>10–12 weeks (2nd dose at 16 wks)</option>
+          <option value="8">8 weeks (2nd dose at 10–12 wks)</option>
+        </select>
+      </div>
+      <div class="toggle-wrap">
+        <label>Adult booster interval</label>
+        <label class="switch">
+          <input type="checkbox" id="tri">
+          <span class="track"><span class="knob"></span></span>
+          <span class="switch-label">Rabies &amp; Distemper every 3 years</span>
+        </label>
+      </div>
+      <div>
+        <label for="years">Show annual exams for</label>
+        <select id="years">
+          <option value="3">Next 3 years</option>
+          <option value="5" selected>Next 5 years</option>
+          <option value="7">Next 7 years</option>
+        </select>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="chip"><span class="dot core"></span> Core — must-have, disease is preventable</span>
+      <span class="chip"><span class="dot life"></span> Lifestyle — lowers risk &amp; spread</span>
+      <span class="chip"><span class="dot care"></span> Tests &amp; care — exams, parasite control, etc.</span>
+    </div>
+    <p class="hint" id="hint">Tip: dates update automatically as you change the birthdate.</p>
+  </div>
+
+  <div id="puppy" class="cards"></div>
+  <div id="annualPanel" class="panel annual" style="display:none"></div>
+
+  <footer>
+    <strong>*Distemper</strong> = the DA2PP / 5-way vaccine (Distemper, Adenovirus I &amp; II, Parvovirus, Parainfluenza). Distemper and Leptospirosis are given as a single combined vaccine whenever both fall on the same visit; the one distemper dose given without leptospirosis uses a standalone distemper vaccine.
+    &nbsp;<strong>**Rabies:</strong> renewal depends on state laws and risk.<br>
+    The first visit is set to exactly 8 weeks and the final puppy visit to exactly 16 weeks (the source schedule lists a 14–16 week range).
+    The "every 3 years" toggle changes only the adult schedule — Rabies &amp; Distemper boost at year 1 then every 3 years, while Leptospirosis stays annual; the puppy series is unaffected.
+    Leptospirosis is a two-dose series given 3–4 weeks apart; use the selector to start it at 8 weeks or 10–12 weeks, and the second dose is placed at the next visit accordingly.
+    Deworming, heartworm testing/prevention, microchipping, and spay/neuter timing are general wellness guidelines and vary by breed, region, and your vet's advice.
+    This tool is a planning aid based on the petMD general guideline — always confirm timing with your licensed veterinarian.
+  </footer>
+</div>
+
+<script>
+// Distemper (the DA2PP / 5-way) is given at all 3 puppy visits. Leptospirosis is a
+// 2-dose series 3–4 weeks apart, starting at 8 wks (doses @8 + 10–12) or 10–12 wks
+// (doses @10–12 + 16). Distemper + Lepto come as ONE combined vaccine when they
+// coincide; the distemper dose given without lepto uses a standalone vaccine.
+function dcell(leptoDose){
+  return leptoDose
+    ? `Distemper + Leptospirosis* (Lepto dose ${leptoDose})`
+    : 'Distemper* (standalone)';
+}
+function buildSchedule(){
+  const early = document.getElementById('lepto').value === '8';
+  return [
+    { key:'p1', label:'8', unit:'Weeks', type:'exact', weeks:8,
+      core: [ dcell(early ? 1 : 0) ], life:['Bordetella'],
+      care:['Physical exam','Deworming','Microchip','Start heartworm + flea/tick prevention'] },
+    { key:'p2', label:'10–12', unit:'Weeks', type:'range', startWeeks:10, endWeeks:12,
+      core: [ dcell(early ? 2 : 1) ], life:['Lyme'],
+      care:['Physical exam','Deworming','Continue monthly prevention'] },
+    { key:'p3', label:'16', unit:'Weeks', type:'exact', weeks:16,
+      core: [ 'Rabies**', dcell(early ? 0 : 2) ], life:['Lyme'],
+      care:['Physical exam','Deworming','Continue monthly prevention'] },
+    { key:'p5', label:'6–12', unit:'Months', type:'monthRange', startMonths:6, endMonths:12, proc:true,
+      core:[], life:[],
+      care:['Spay / neuter','Deworming'] },
+  ];
+}
+const ANNUAL = {
+  core:['Rabies**','Distemper + Leptospirosis*'],
+  life:['Lyme','Bordetella'],
+  care:['Physical exam','Heartworm test'],
+};
+
+const fmt = d => d.toLocaleDateString(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+const addDays = (d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const addYears = (d,n)=>{ const x=new Date(d); x.setFullYear(x.getFullYear()+n); return x; };
+const addMonths = (d,n)=>{ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; };
+
+function group(tag,cls,arr){
+  if(!arr || !arr.length) return '';
+  return `<div class="grp"><span class="tag ${cls}">${tag}</span><ul>`+
+    arr.map(v=>'<li>'+v+'</li>').join('')+'</ul></div>';
+}
+
+function render(){
+  const val = document.getElementById('dob').value;
+  const puppy = document.getElementById('puppy');
+  const annualPanel = document.getElementById('annualPanel');
+  if(!val){
+    puppy.innerHTML = '<div class="panel" style="grid-column:1/-1"><span class="empty">Pick a date of birth above to see the schedule.</span></div>';
+    annualPanel.style.display='none';
+    return;
+  }
+  const dob = new Date(val + 'T00:00:00');
+
+  puppy.innerHTML = buildSchedule().map(s=>{
+    let when;
+    if(s.type==='range'){
+      when = '<span class="range">'+fmt(addDays(dob,s.startWeeks*7))+'</span><br>to '+fmt(addDays(dob,s.endWeeks*7));
+    } else if(s.type==='monthRange'){
+      when = '<span class="range">'+fmt(addMonths(dob,s.startMonths))+'</span><br>to '+fmt(addMonths(dob,s.endMonths));
+    } else if(s.type==='months'){
+      when = '<span class="range">'+fmt(addMonths(dob,s.months))+'</span>';
+    } else {
+      when = '<span class="range">'+fmt(addDays(dob,s.weeks*7))+'</span>';
+    }
+    return `<div class="card">
+      <div class="top">
+        <div class="age">${s.label} <small>${s.unit}</small></div>
+        <div class="when">${when}</div>
+      </div>
+      <div class="body">
+        ${group('Core','core',s.core)}
+        ${group('Lifestyle','life',s.life)}
+        ${group(s.proc?'Procedure':'Tests & care','care',s.care)}
+      </div>
+    </div>`;
+  }).join('');
+
+  const n = parseInt(document.getElementById('years').value,10);
+  const triennial = document.getElementById('tri').checked;
+  let rows='';
+  for(let y=1;y<=n;y++){
+    let core;
+    if(triennial){
+      // Rabies & Distemper boostered at year 1, then every 3 years (yrs 1,4,7,…); Lepto stays annual
+      core = (y % 3 === 1) ? ['Rabies**','Distemper + Leptospirosis*'] : ['Leptospirosis* (standalone)'];
+    } else {
+      core = ANNUAL.core;
+    }
+    rows += `<tr>
+      <td data-label="Visit"><strong>Year ${y}</strong></td>
+      <td data-label="Approx. date">${fmt(addYears(dob,y))}</td>
+      <td data-label="Core">${core.join(', ')}</td>
+      <td data-label="Lifestyle">${ANNUAL.life.join(', ')}</td>
+      <td data-label="Tests &amp; care">${ANNUAL.care.join(', ')}</td></tr>`;
+  }
+  annualPanel.innerHTML = `<h2>Annual Examinations</h2>
+    <table><thead><tr><th>Visit</th><th>Approx. date</th><th>Core</th><th>Lifestyle</th><th>Tests &amp; care</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+  annualPanel.style.display='block';
+}
+
+document.getElementById('lepto').addEventListener('change', render);
+document.getElementById('tri').addEventListener('change', render);
+document.getElementById('dob').addEventListener('input', render);
+document.getElementById('years').addEventListener('change', render);
+render();
+</script>
+</body>
+</html>
